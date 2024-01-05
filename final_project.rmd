@@ -1,0 +1,265 @@
+---
+title: "ATP Tennis Match Analysis for 2021 based on Player Age and Height"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+library(broman)
+source("../scripts/viridis-1.R")
+source("../scripts/ggprob.R")
+```
+#### Roshni Venkat
+## R Markdown
+
+# Introduction
+Have you ever wondered about the importance of biology to your success in sports? Our analysis of the 2021 ATP Tennis tour seeks to do just that. We would like to further discuss and explore how the key variables (age and height) affect the outcome of a tennis match. We have two questions: 
+
+1. Are the chances of winning a match in the age range of 19-26 different from those in the age range of 27-34?    
+2. Are the chances of winning a match with a height greater than 185 different from those with a height lesser than or equal to 185?    
+These questions will be answered through various confidence intervals and hypothesis tests and will be displayed through bar charts. 
+
+Thesis: We want to find out how age and height affect a player's chances of winning a game. We predict that players in the 19-26 age group and with a height of greater than 185cm will have higher chances of winning.
+
+# Background 
+The data we found was part of a crowd-sourcing project where individuals could report data on whatever match they watched. Since the data was crowd sources, some matches might have had incomplete information. To address the concern of working with incomplete data, we only used variables that had complete information.The result was a large database of tennis data. As a group, we decided that the most recent data was going to be the most helpful, which is when we decided to analyze the ATP Tennis tour-level main draw matches played in 2021. The final data set that we used was created by Jeff Sackmann and was shared through GitHub, which is where we also downloaded the data from. Here is the source of data: https://github.com/JeffSackmann/tennis_atp. The variables we will be working with are winner_age, loser_age, winner_ht, and loser_ht, which we confirmed contained no missing data.
+
+In our data set, we are focusing on a few key variables. The variables, winner_age, and loser_age will both be helpful in determining the statistical significance age has on winning a match. These variables are reported as a num type and rounded to the nearest year. The other important variables to our analysis are winner_ht and loser_ht. These variables are also reported as num types with the unit of measurement being centimeters. These are the four variables that will be the most important for our research.
+
+For our first question, we want to look at how the chances of winning in the age range 19-26 is different from the chances of winning in the age range 27-34. The two age variables winner_age and loser_age will be important to answer our first question.
+We will first create a data frame of all the matches played in atp tournaments in 2021. After that, we will group the rows based on the winner's age and create a bar chart of the proportion of total matches won on the y-axis versus the player’s age on the x-axis to visualize the data. To make the analysis fair, we will then calculate the number of matches played in which each player is in a different age category and use this data to calculate the proportion of matches won by the players in the two different age categories. After that, we will use a confidence interval to find the 95% confidence interval for the analysis. We will also use a hypothesis test to see if the proportion of players in the age range 19-26 had a higher chance of winning than players in the age range 27-34. We predict that players in the age range 19-26 will have a higher chance of winning than those in the range 27-34, since they may be fitter and have higher energy levels. 
+
+For our second question, we want to look at how the chances of winning with a height greater than 185 is different from the chances of winning with a height lesser than or equal to 185. The two age variables winner_ht and loser_ht will be important to answer our first question. Using the data frame of all the matches played in atp tournaments in 2021, we will group rows based on winner's height and create a bar chart of the proportion of total matches won on the y-axis versus the player’s height on the x-axis to visualize the data. To make the analysis fair, we will then calculate the number of matches played in which each player is in a different height category and use this data to calculate the proportion of matches won by the players in the two different height categories. After that, we will use a confidence interval to find the 95% confidence interval for the analysis. We will also use a hypothesis test to see if the proportion of players with a height greater than 185 had a higher chance of winning than players with a height lesser than or equal to 185. We predict that players with a height greater than 185 will have a higher chance of winning.
+
+
+# Methods
+
+We now do some preliminary analysis on the data set.
+
+We first read in the data from the csv file.
+```{r include=FALSE}
+tennis = read_csv("../data/tennis.csv")
+```
+
+Next, we do some basic cleaning on the dataset. We remove all the columns that contain a large amount of na values, which makes the data very hard to read and process.
+```{r include=FALSE}
+tennis = tennis %>%
+  select(-winner_seed, -winner_entry, -loser_seed, -loser_entry, -minutes, -w_ace, -w_df, w_svpt, w_1stIn, -w_1stWon, -w_2ndWon, -w_SvGms, -w_bpSaved, -w_bpFaced,-l_ace, -l_df, l_svpt, l_1stIn, -w_1stWon, -l_2ndWon, -l_SvGms, -l_bpSaved, -l_bpFaced)
+```
+
+
+We now select only the columns that are required for the data analysis and drop the rows that contain na values. We also rename the column names to make them more readable and easier to understand, and calculate the total number of matches played.
+```{r include=FALSE} 
+tennis = tennis %>%
+  ## select only required columns
+  select(winner_name, winner_ioc, winner_ht, winner_age, loser_ht, loser_age) %>%
+  drop_na() %>%
+  ## rounding ages
+  mutate(winner_age = round(winner_age), loser_age = round(loser_age)) %>% 
+  ## rename coloumns
+  rename(winner_country = winner_ioc, winner_height = winner_ht, loser_height = loser_ht)
+tennis
+
+total_matches = nrow(tennis)
+total_matches
+```
+
+Finally, we find all the matches played in which each player belongs to a different age category and put them in a data frame called matches_by_age. We find all the matches played in which each player belongs to a different height category and put them in a data frame called matches_by_height.
+```{r include=FALSE}
+
+## matches where the winner is in the age range 19-26 and the loser is in the age range 27-34
+age1 = tennis %>%
+  filter(winner_age >= 19) %>% filter(winner_age <= 26) %>% filter(loser_age >= 27) %>% filter(loser_age <= 34)
+
+## matches where the loser is in the age range 19-26 and the winner is in the age range 27-34
+age2 = tennis %>%
+  filter(loser_age >= 19) %>% filter(loser_age <= 26) %>% filter(winner_age >= 27) %>% filter(winner_age <= 34)
+
+## combine age1 and age2 to find all matches in which each player belongs to a different age category 
+matches_by_age = rbind(age1, age2)
+matches_by_age
+
+## matches where the winner is has a height greater than 185 and the loser has a height lesser than or equal to 185
+height1 = tennis %>%
+  filter(winner_height > 185) %>% filter(loser_height <= 185)
+
+## matches where the loser is has a height greater than 185 and the winner has a height lesser than or equal to 185
+height2 = tennis %>%
+  filter(loser_height > 185) %>% filter(winner_height <= 185)
+
+## combine height1 and height2 to find all matches in which each player belongs to a different height category 
+matches_by_height = rbind(height1, height2)
+matches_by_height
+```
+
+## Are the chances of winning a match in the age range of 19-26 different from those in the age range of 27-34?
+
+We will first plot a bar chart for the distribution of the proportion of matches won versus winner age.
+```{r include=FALSE}
+matches_by_age_df = matches_by_age %>%
+  group_by(winner_age) %>%
+  summarize(n = n(), prop = n/961)
+matches_by_age_df
+```
+
+```{r echo=FALSE}
+ggplot(matches_by_age_df ) +
+  geom_col(aes(winner_age, prop), fill = "blue") +
+  xlab("Winner age (years)") +
+  ylab("Proportion of matches won") +
+  ggtitle("Distribution of the proportion of matches won versus winner age")
+```
+
+Overall, we can see that players in the 19-26 age category have a higher proportions of matches won than in the 27-34 age category.
+
+We now do a formal calculation of the proportion of matches won by players in the different age categories:
+```{r}
+n_19_26 = nrow(age1)
+n_27_34 = nrow(age2)
+prop_19_26 = n_19_26 / nrow(matches_by_age)
+prop_27_34 = n_27_34 / nrow(matches_by_age)
+prop_19_26
+prop_27_34
+```
+
+We see that approximately 58.1% of the total matches played in which both the players were in different age categories were won by players in the age range of 19-26. This supports our expectation that younger players have a higher chance of winning than their opponents.
+
+### Confidence interval test
+
+We are going to use the confidence interval test to find the 95% confidence interval for the analysis. We take the proportions of winning for both age categories. We use the difference of proportions to estimate the 95% confidence interval and determine whether the chances of winning a match are the same for each age category.
+
+```{r}
+se_age1 = sqrt(((prop_19_26 * (1-prop_19_26)) / n_19_26) + ((prop_27_34 * (1-prop_27_34)) / n_27_34))
+estimate_age = prop_19_26 - prop_27_34
+z = qnorm(0.975)
+lower_ci_age = estimate_age - (z * se_age1)
+upper_ci_age = estimate_age + (z * se_age1)
+lower_ci_age
+upper_ci_age
+```
+
+### Hypothesis test
+
+We are going to use the hypothesis test to see if the chances of winning a match in the age range 19-26 is greater than the age range 27-34.
+
+Statistical model:  
+p1 is the probability that the winner is in the age range 19-26: $X_1$∣p1∼Binomial(961,p1)  
+p2 is the probability that the winner is in the age range 27-34: $X_2$∣p2∼Binomial(961,p2)  
+
+Hypotheses:  
+$H_0$ : p1 = p2  
+$H_a$ : p1 ≠ p2  
+
+Test statistic:  
+$\hat{p}_1 - \hat{p}_2$
+
+```{r}
+test_stat = prop_19_26 - prop_27_34
+p0 = (n_19_26 + n_27_34) / (nrow(matches_by_age) + nrow(matches_by_age))
+se_age2 = sqrt( p0 * (1-p0)/ n_19_26 + p0 * (1-p0)/ n_27_34)
+z = (test_stat - 0) / se_age2
+pvalue1 = pnorm(z, lower.tail = FALSE)
+pvalue1
+```
+
+## Are the chances of winning a match with a height greater than 185 different from those with a height lesser than or equal to 185?
+
+We will first plot a bar chart for the distribution of the proportion of matches won versus winner height.
+```{r include=FALSE}
+matches_by_height_df = matches_by_height %>%
+  group_by(winner_height) %>%
+  summarize(n = n(), prop = n/1323)
+matches_by_height_df
+```
+
+```{r echo=FALSE}
+ggplot(matches_by_height_df) +
+  geom_col(aes(winner_height, prop), fill = "red") +
+  xlab("Winner height (cm)") +
+  ylab("Proportion of matches won") +
+  ggtitle("Distribution of the proportion of matches won versus winner height")
+```
+
+Overall, we can see that the players with a height greater than 185 have a higher proportion of matches won than players with a height lesser than or equal to 185.
+
+We now do a formal calculation of the proportion of matches won by players in different height categories:
+```{r}
+n_greater = nrow(height1)
+n_lesser_or_equal = nrow(height2)
+prop_greater = n_greater / nrow(matches_by_height) 
+prop_lesser_or_equal = n_lesser_or_equal / nrow(matches_by_height)
+prop_greater
+prop_lesser_or_equal
+```
+
+We observe that approximately 59.3% of the total matches played in which both the players were in different height categories were won by players above the height of 185cm. This supports our expectation that taller players have a higher chance of winning than their opponents.
+
+### Confidence interval test
+
+We are going to use the confidence interval test to find the 95% confidence interval for the analysis. We take the proportions of winning for both height categories. We use the difference of proportions to estimate the 95% confidence interval and determine whether the chances of winning a match are the same for each height category.
+
+```{r}
+se_height_1 = sqrt(((prop_greater * (1-prop_greater)) / n_greater) + ((prop_lesser_or_equal * (1-prop_lesser_or_equal)) / n_lesser_or_equal))
+estimate_height = prop_greater - prop_lesser_or_equal
+z = qnorm(0.975)
+lower_ci_height = estimate_height - (z * se_height_1)
+upper_ci_height = estimate_height + (z * se_height_1)
+lower_ci_height
+upper_ci_height
+```
+
+### Hypothesis test
+
+We are going to use the hypothesis test to see if the chances of winning a match with a height greater than 185cm is greater than a height with lesser than or equal to 185cm.
+
+Statistical model:  
+p1 is the probability that the winner has a height greater than 185: $X_1$∣p1∼Binomial(1323,p1)  
+p2 is the probability that the winner has a height lesser than or equal to 185: $X_2$∣p2∼Binomial(1323,p2)  
+
+Hypotheses:  
+$H_0$ : p1 = p2  
+$H_a$ : p1 ≠ p2  
+
+Test statistic:  
+$\hat{p}_1 - \hat{p}_2$
+
+```{r}
+test_stat = prop_greater - prop_lesser_or_equal
+p0 = (n_greater + n_lesser_or_equal) / (nrow(matches_by_height) + nrow(matches_by_height))
+se_height2 = sqrt( p0 * (1-p0)/ n_greater + p0 * (1-p0)/ n_lesser_or_equal)
+z = (test_stat - 0) / se_height2
+pvalue2 = pnorm(z, lower.tail = FALSE)
+pvalue2
+```
+
+
+# Discussion
+The results from our experiment suggests how age and height play an important role in the results of ATP tennis matches - it implies that although the chances of winning purely depends on the player and their level of play, other genetic factors that a person cannot control such age and height could also play a role, and could ultimately decide the outcome of a match.
+
+The results of our 95% confidence interval for age were: lower interval = 0.103, upper interval = 0.221. From the analysis, we come to the following conclusion. We are 95% confident that the difference in the chances of winning a match is between 0.103 and 0.221 greater for players in the age range 19-26 than for players in the age range 27-34.
+
+The results of our hypothesis test for age was that p = 4.54e-08.
+There is very strong evidence to support the conclusion that the chances of winning a match is higher when the winner is in the age range 19-26 than in the age range 27-34 (p = 4.54e-08, z test for difference in proportions).
+
+After we view the results of the first question we come to know that tennis players from the age group 19-26 have had more wins since younger players are more active and agile. Most players in their lifetime tend to be in their prime between the years 19-26 which is when they win most of their matches in their career.
+
+The results of our 95% confidence interval for age were: lower interval =  0.133, upper interval = 0.241. From the analysis, we come to the following conclusion. We are 95% confident that the difference in the chances of winning a match is between 0.133 and 0.241 greater for players with a height greater than 185cm than for players with a height lesser than or equal to 185cm.
+
+The results of our hypothesis test for age was that p = 1.27e-11.
+There is very strong evidence to support the conclusion that the chances of winning a match is higher when the winner has a height greater than 185 cm than lesser than or equal to 185cm (p = 1.27e-11, z test for difference in proportions).
+
+After we view the results of the second question we come to know that tennis players with a height greater than 185cm have had more wins since being tall in a game like tennis gives you an advantage. It allows a player to extend their body completely, giving them a wider radius of movement than their opponents. This led to taller players having an advantage over their opponents. 
+
+Some potential shortcomings are that we assume the data set has no errors and that there are no rows that have incorrect data. Also, we considered data only for the year 2021, which means this analysis is valid only for that specific year and cannot be mistaken for an analysis for ATP tennis matches in general. Moreover, we have not taken the surface type into account. Another assumption we are making for the first question is that players less than 19 years old and greater than 34 years old are not taken into consideration. We have also rounded players' ages to create more visually appealing graphs and data. Overall, this data set could be improved drastically if there was no missing data.
+
+Building off of this data, we could answer questions such as how does the court surface impact the chances of winning. By answering this question, we may find that clay surfaces benefit players in the latter age group (27-34). Another question we could answer with this data set is: based on the confidence interval, will the number one seeded player in a tournament be in the 19-26 age group or the 27-34 age group. We could also use linear regression and dummy variables to answer both our research question. Linear regression would greatly help us understand the correlation between age and the chances of winning a match, and height and the chances of winning a match. For the first question, we might collect data for the age range of below 19 as well as above 34 to further strengthen our analysis and understanding of the results of the experiment. For the second question, we might make more intervals for height ranges (for example, 160-170, 170-180, 180-190 etc) to further strengthen our analysis and understanding of the results of the experiment.
+
+To conclude, the results from our experiment suggests how age and height play an important role in the results of ATP tennis matches - it implies that although the chances of winning purely depends on the player and their level of play, other genetic factors that a person cannot control such age and height could also play a role, and can ultimately decide the outcome of a match.
+
+# References
+https://github.com/JeffSackmann/tennis_atp
+
+
+^[https://github.com/JeffSackmann/tennis_atp]
